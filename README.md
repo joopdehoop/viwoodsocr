@@ -6,11 +6,10 @@ OCR PDF's van de Viwoods AI Paper Mini en sla de herkende tekst op in een doorzo
 
 - MVC-opzet (Model/View/Controller)
 - Windows GUI (`tkinter`) met:
-  - PDF kiezen
+  - PDF of PDF folder kiezen
   - Provider kiezen: OpenAI / Azure / Google
   - taalhint + DPI
-  - scan-progress + tekstpreview
-  - export naar searchable PDF
+  - scan-progress + tekstpreview + export
 - Secrets buiten code via `.env`
 - Onzichtbare tekstlaag per pagina (woord-bbox indien provider die teruggeeft)
 
