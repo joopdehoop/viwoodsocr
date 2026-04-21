@@ -1,2 +1,74 @@
 # viwoodsocr
-OCR pdfs from the Viwoods AI Paper Mini and save the scanned text inside the same pdf.
+
+OCR PDF's van de Viwoods AI Paper Mini en sla de herkende tekst op in een doorzoekbare PDF.
+
+## Features
+
+- MVC-opzet (Model/View/Controller)
+- Windows GUI (`tkinter`) met:
+  - meerdere PDF's kiezen
+  - of een complete map met PDF's kiezen
+  - provider kiezen: OpenAI / Azure / Google
+  - taalhint + DPI
+  - scan-progress + tekstpreview
+- Secrets buiten code via `.env`
+- Onzichtbare tekstlaag per pagina (woord-bbox indien provider die teruggeeft)
+- Automatische output per bestand met LLM-naam in formaat `YYYY-MM-DD Short description.pdf`
+- OCR-woorden worden teruggeschreven op dezelfde positie op de pagina (bbox-schaal van OCR-image naar PDF), zodat zoeken de juiste woorden op de juiste plek markeert
+
+## Installatie
+
+```bash
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env
+```
+
+Vul daarna je secrets in `.env` in.
+
+## Starten
+
+```bash
+python app.py
+```
+
+## Werking batch scan
+
+1. Kies losse PDF's via **Kies PDF(s)**, of kies een map via **Kies map**.
+2. Klik op **Scannen + auto opslaan**.
+3. Na OCR vraagt de app een LLM om een nette bestandsnaam in formaat `YYYY-MM-DD Short description.pdf`.
+4. Bestand wordt opgeslagen in dezelfde map; bij naamconflict wordt `(1)`, `(2)`, ... toegevoegd.
+
+## Provider-notities
+
+- **OpenAI**: gebruikt de Responses API met afbeelding-input.
+- **Azure**: gebruikt Document Intelligence `prebuilt-read` en pollt async analyse.
+- **Google**: gebruikt Vision API `DOCUMENT_TEXT_DETECTION` met service account credentials.
+
+## Belangrijk
+
+- API-calls kosten geld en vereisen geldige cloud-configuratie.
+- Voor Google moet `GOOGLE_APPLICATION_CREDENTIALS` een pad naar je service-account JSON zijn (of ruwe JSON-string), niet een willekeurige bestandsnaam zonder bestaand bestand.
+- Als een provider geen woord-bounding-boxes teruggeeft, wordt fallback gebruikt met pagina-brede onzichtbare tekstlaag.
+
+## Troubleshooting (uv)
+
+Gebruik je `uv` i.p.v. een actieve venv, start dan bij voorkeur zo:
+
+```bash
+uv run --project . --env-file .env python app.py
+```
+
+of expliciet vanaf de projectmap:
+
+```bash
+uv run --directory . python app.py
+```
+
+
+Optioneel kun je een apart model voor bestandsnamen zetten in `.env`:
+
+```env
+OPENAI_FILENAME_MODEL=gpt-4.1-mini
+```
