@@ -1,4 +1,6 @@
 import base64
+import json
+from pathlib import Path
 
 from model.ocr_result import OCRPageResult, OCRWord
 from services.ocr_providers.base_provider import BaseOCRProvider
@@ -7,8 +9,8 @@ from services.ocr_providers.base_provider import BaseOCRProvider
 class GoogleProvider(BaseOCRProvider):
     name = "google"
 
-    def __init__(self, credentials_path: str) -> None:
-        self.credentials_path = credentials_path
+    def __init__(self, credentials_source: str) -> None:
+        self.credentials_source = credentials_source
 
     def scan_page(self, image_bytes: bytes, page_index: int, language_hint: str = "nl") -> OCRPageResult:
         import requests
@@ -36,14 +38,36 @@ class GoogleProvider(BaseOCRProvider):
         words = self._extract_words(data.get("fullTextAnnotation", {}))
         return OCRPageResult(page_index=page_index, text=full_text, words=words)
 
+    def _resolve_credentials_path(self, raw_value: str) -> Path:
+        path = Path(raw_value.strip()).expanduser()
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        return path
+
     def _get_access_token(self) -> str:
         from google.auth.transport.requests import Request
         from google.oauth2 import service_account
 
-        credentials = service_account.Credentials.from_service_account_file(
-            self.credentials_path,
-            scopes=["https://www.googleapis.com/auth/cloud-platform"],
-        )
+        raw = self.credentials_source.strip()
+
+        if raw.startswith("{"):
+            info = json.loads(raw)
+            credentials = service_account.Credentials.from_service_account_info(
+                info,
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
+        else:
+            path = self._resolve_credentials_path(raw)
+            if not path.exists():
+                raise FileNotFoundError(
+                    "Google credential file niet gevonden. Zet in .env een pad, bijv. "
+                    "GOOGLE_APPLICATION_CREDENTIALS=./my-service-account.json"
+                )
+            credentials = service_account.Credentials.from_service_account_file(
+                str(path),
+                scopes=["https://www.googleapis.com/auth/cloud-platform"],
+            )
+
         credentials.refresh(Request())
         return credentials.token
 

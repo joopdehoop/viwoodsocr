@@ -48,4 +48,5 @@ python app.py
 ## Belangrijk
 
 - API-calls kosten geld en vereisen geldige cloud-configuratie.
+- Voor Google moet `GOOGLE_APPLICATION_CREDENTIALS` een pad naar je service-account JSON zijn (of ruwe JSON-string), niet een willekeurige bestandsnaam zonder bestaand bestand.
 - Als een provider geen woord-bounding-boxes teruggeeft, wordt fallback gebruikt met pagina-brede onzichtbare tekstlaag.

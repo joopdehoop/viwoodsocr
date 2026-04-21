@@ -20,7 +20,7 @@ class AppController:
                 api_key=self.secrets.get("AZURE_DOCINTEL_KEY"),
             )
         if key == "google":
-            return GoogleProvider(credentials_path=self.secrets.get("GOOGLE_APPLICATION_CREDENTIALS"))
+            return GoogleProvider(credentials_source=self.secrets.get("GOOGLE_APPLICATION_CREDENTIALS"))
         raise ValueError(f"Unknown provider: {provider_name}")
 
     def default_output_path(self, source: Path) -> Path:

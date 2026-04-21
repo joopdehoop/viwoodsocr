@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from services.ocr_providers.azure_provider import AzureProvider
 from services.ocr_providers.google_provider import GoogleProvider
 from services.ocr_providers.openai_provider import OpenAIProvider
@@ -31,3 +33,11 @@ def test_google_vertices_to_bbox():
         ]
     )
     assert bbox == (5.0, 10.0, 20.0, 16.0)
+
+
+def test_google_resolve_relative_credentials_path():
+    provider = GoogleProvider("creds.json")
+    resolved = provider._resolve_credentials_path("creds.json")
+    assert resolved.name == "creds.json"
+    assert resolved.is_absolute()
+    assert str(resolved).startswith(str(Path.cwd()))
