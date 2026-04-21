@@ -14,6 +14,7 @@ OCR PDF's van de Viwoods AI Paper Mini en sla de herkende tekst op in een doorzo
 - Secrets buiten code via `.env`
 - Onzichtbare tekstlaag per pagina (woord-bbox indien provider die teruggeeft)
 - Automatische output per bestand als `filename_searchable.pdf`
+- OCR-woorden worden teruggeschreven op dezelfde positie op de pagina (bbox-schaal van OCR-image naar PDF), zodat zoeken de juiste woorden op de juiste plek markeert
 
 ## Installatie
 

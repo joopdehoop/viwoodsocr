@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 @dataclass
 class OCRWord:
     text: str
-    # (x0, y0, x1, y1) in PDF/page coordinates when available.
+    # (x0, y0, x1, y1) in OCR image coordinates when available.
     bbox: tuple[float, float, float, float] | None = None
     confidence: float | None = None
 
@@ -14,6 +14,7 @@ class OCRPageResult:
     page_index: int
     text: str
     words: list[OCRWord] = field(default_factory=list)
+    image_size: tuple[int, int] | None = None
 
 
 @dataclass
