@@ -4,7 +4,8 @@ from dataclasses import dataclass, field
 @dataclass
 class OCRWord:
     text: str
-    bbox: tuple[float, float, float, float]
+    # (x0, y0, x1, y1) in PDF/page coordinates when available.
+    bbox: tuple[float, float, float, float] | None = None
     confidence: float | None = None
 
 

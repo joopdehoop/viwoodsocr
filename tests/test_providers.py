@@ -3,7 +3,31 @@ from services.ocr_providers.google_provider import GoogleProvider
 from services.ocr_providers.openai_provider import OpenAIProvider
 
 
-def test_provider_placeholders():
-    assert "placeholder" in OpenAIProvider("x").scan_page(b"a", 0).text.lower()
-    assert "placeholder" in AzureProvider("e", "k").scan_page(b"a", 0).text.lower()
-    assert "placeholder" in GoogleProvider("c").scan_page(b"a", 0).text.lower()
+def test_openai_extract_text_from_output():
+    provider = OpenAIProvider("x")
+    data = {
+        "output": [
+            {"content": [{"type": "output_text", "text": "regel 1"}]},
+            {"content": [{"type": "output_text", "text": "regel 2"}]},
+        ]
+    }
+    assert provider._extract_text_from_output(data) == "regel 1\nregel 2"
+
+
+def test_azure_polygon_to_bbox():
+    provider = AzureProvider("https://example.cognitiveservices.azure.com", "k")
+    bbox = provider._polygon_to_bbox([10, 20, 40, 20, 40, 30, 10, 30])
+    assert bbox == (10, 20, 40, 30)
+
+
+def test_google_vertices_to_bbox():
+    provider = GoogleProvider("/tmp/creds.json")
+    bbox = provider._vertices_to_bbox(
+        [
+            {"x": 5, "y": 10},
+            {"x": 20, "y": 10},
+            {"x": 20, "y": 16},
+            {"x": 5, "y": 16},
+        ]
+    )
+    assert bbox == (5.0, 10.0, 20.0, 16.0)

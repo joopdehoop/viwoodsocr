@@ -12,7 +12,8 @@ class AppController:
     def build_provider(self, provider_name: str):
         key = provider_name.lower()
         if key == "openai":
-            return OpenAIProvider(api_key=self.secrets.get("OPENAI_API_KEY"))
+            model = self.secrets.optional("OPENAI_MODEL", "gpt-4.1-mini")
+            return OpenAIProvider(api_key=self.secrets.get("OPENAI_API_KEY"), model=model)
         if key == "azure":
             return AzureProvider(
                 endpoint=self.secrets.get("AZURE_DOCINTEL_ENDPOINT"),

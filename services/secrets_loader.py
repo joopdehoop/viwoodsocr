@@ -1,5 +1,10 @@
 import os
-from dotenv import load_dotenv
+
+try:
+    from dotenv import load_dotenv
+except ModuleNotFoundError:  # optional in minimal test/runtime environments
+    def load_dotenv() -> bool:
+        return False
 
 
 class SecretsLoader:
@@ -11,3 +16,7 @@ class SecretsLoader:
         if not value:
             raise ValueError(f"Missing required secret: {key}")
         return value
+
+    def optional(self, key: str, default: str = "") -> str:
+        value = os.getenv(key, "").strip()
+        return value or default
