@@ -6,12 +6,14 @@ OCR PDF's van de Viwoods AI Paper Mini en sla de herkende tekst op in een doorzo
 
 - MVC-opzet (Model/View/Controller)
 - Windows GUI (`tkinter`) met:
-  - PDF of PDF folder kiezen
-  - Provider kiezen: OpenAI / Azure / Google
+  - meerdere PDF's kiezen
+  - of een complete map met PDF's kiezen
+  - provider kiezen: OpenAI / Azure / Google
   - taalhint + DPI
-  - scan-progress + tekstpreview + export
+  - scan-progress + tekstpreview
 - Secrets buiten code via `.env`
 - Onzichtbare tekstlaag per pagina (woord-bbox indien provider die teruggeeft)
+- Automatische output per bestand als `filename_searchable.pdf`
 
 ## Installatie
 
@@ -29,6 +31,12 @@ Vul daarna je secrets in `.env` in.
 ```bash
 python app.py
 ```
+
+## Werking batch scan
+
+1. Kies losse PDF's via **Kies PDF(s)**, of kies een map via **Kies map**.
+2. Klik op **Scannen + auto opslaan**.
+3. Elk bestand wordt direct opgeslagen als `originele_naam_searchable.pdf` in dezelfde map.
 
 ## Provider-notities
 

@@ -15,14 +15,14 @@ class MainWindow:
     def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title("Viwoods OCR Scanner")
-        self.root.geometry("760x560")
+        self.root.geometry("860x580")
 
         self.app_controller = AppController(SecretsLoader())
         self.ocr_controller = OCRController(PDFRenderer())
         self.export_controller = ExportController(SearchablePDFWriter())
         self.jobs = JobQueue(max_workers=1)
 
-        self.selected_pdf: Path | None = None
+        self.selected_pdfs: list[Path] = []
         self.scan_result = None
         self.scan_future = None
 
@@ -37,8 +37,11 @@ class MainWindow:
         top = ttk.Frame(self.root, padding=12)
         top.pack(fill="x")
 
-        self.choose_btn = ttk.Button(top, text="Kies PDF", command=self.choose_pdf)
+        self.choose_btn = ttk.Button(top, text="Kies PDF(s)", command=self.choose_pdfs)
         self.choose_btn.pack(side="left")
+
+        self.choose_folder_btn = ttk.Button(top, text="Kies map", command=self.choose_folder)
+        self.choose_folder_btn.pack(side="left", padx=(6, 0))
 
         ttk.Label(top, text="  Provider:").pack(side="left")
         ttk.Combobox(top, textvariable=self.provider_var, values=["openai", "azure", "google"], width=10, state="readonly").pack(side="left")
@@ -49,11 +52,8 @@ class MainWindow:
         ttk.Label(top, text="  DPI:").pack(side="left")
         ttk.Spinbox(top, from_=150, to=600, increment=50, textvariable=self.dpi_var, width=6).pack(side="left")
 
-        self.scan_btn = ttk.Button(top, text="Scannen", command=self.scan)
+        self.scan_btn = ttk.Button(top, text="Scannen + auto opslaan", command=self.scan)
         self.scan_btn.pack(side="left", padx=8)
-
-        self.export_btn = ttk.Button(top, text="Exporteer searchable PDF", command=self.export_pdf)
-        self.export_btn.pack(side="left")
 
         self.progress = ttk.Progressbar(self.root, mode="determinate")
         self.progress.pack(fill="x", padx=12, pady=(8, 4))
@@ -67,16 +67,29 @@ class MainWindow:
         state = "disabled" if busy else "normal"
         self.scan_btn.config(state=state)
         self.choose_btn.config(state=state)
+        self.choose_folder_btn.config(state=state)
 
-    def choose_pdf(self) -> None:
-        path = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
-        if path:
-            self.selected_pdf = Path(path)
-            self.status_var.set(f"Gekozen: {self.selected_pdf.name}")
+    def choose_pdfs(self) -> None:
+        paths = filedialog.askopenfilenames(filetypes=[("PDF", "*.pdf")])
+        if paths:
+            self.selected_pdfs = [Path(path) for path in paths]
+            self.status_var.set(f"Gekozen: {len(self.selected_pdfs)} PDF-bestanden")
+
+    def choose_folder(self) -> None:
+        folder = filedialog.askdirectory()
+        if not folder:
+            return
+        base = Path(folder)
+        pdfs = sorted([*base.glob("*.pdf"), *base.glob("*.PDF")])
+        if not pdfs:
+            messagebox.showwarning("Geen PDF", "In deze map zijn geen PDF-bestanden gevonden.")
+            return
+        self.selected_pdfs = pdfs
+        self.status_var.set(f"Map gekozen: {base} ({len(self.selected_pdfs)} PDF-bestanden)")
 
     def scan(self) -> None:
-        if not self.selected_pdf:
-            messagebox.showwarning("Geen bestand", "Kies eerst een PDF-bestand.")
+        if not self.selected_pdfs:
+            messagebox.showwarning("Geen bestand", "Kies eerst één of meerdere PDF-bestanden, of een map.")
             return
         try:
             provider = self.app_controller.build_provider(self.provider_var.get())
@@ -86,26 +99,39 @@ class MainWindow:
                 dpi=int(self.dpi_var.get()),
             )
 
-            def on_progress(done: int, total: int):
-                def update():
-                    self.progress["maximum"] = total
-                    self.progress["value"] = done
-                    self.status_var.set(f"Scannen {done}/{total}...")
-
-                self.root.after(0, update)
-
             self._set_busy(True)
-            self.status_var.set("Scannen gestart...")
-            self.scan_future = self.jobs.submit(
-                self.ocr_controller.scan_document,
-                self.selected_pdf,
-                provider,
-                config,
-                on_progress,
-            )
+            self.status_var.set("Batch scan gestart...")
+            self.text.delete("1.0", tk.END)
+            self.progress["value"] = 0
+            self.scan_future = self.jobs.submit(self._scan_batch, list(self.selected_pdfs), provider, config)
             self.root.after(100, self._poll_scan_future)
         except Exception as exc:
             messagebox.showerror("Scan fout", str(exc))
+
+    def _scan_batch(self, pdf_paths: list[Path], provider, config) -> list[tuple[Path, Path, str]]:
+        summary: list[tuple[Path, Path, str]] = []
+        total_files = len(pdf_paths)
+
+        for file_index, pdf_path in enumerate(pdf_paths, start=1):
+            def on_progress(done: int, total: int):
+                def update():
+                    base_progress = (file_index - 1) / total_files
+                    page_progress = (done / total) / total_files
+                    self.progress["maximum"] = 1.0
+                    self.progress["value"] = base_progress + page_progress
+                    self.status_var.set(
+                        f"Bestand {file_index}/{total_files}: {pdf_path.name} | pagina {done}/{total}"
+                    )
+
+                self.root.after(0, update)
+
+            result = self.ocr_controller.scan_document(pdf_path, provider, config, on_progress=on_progress)
+            target = self.app_controller.default_output_path(pdf_path)
+            self.export_controller.export_searchable_pdf(pdf_path, result, target)
+            preview = result.combined_text()[:3000]
+            summary.append((pdf_path, target, preview))
+
+        return summary
 
     def _poll_scan_future(self) -> None:
         if not self.scan_future:
@@ -116,33 +142,21 @@ class MainWindow:
 
         self._set_busy(False)
         try:
-            self.scan_result = self.scan_future.result()
+            batch_summary = self.scan_future.result()
+            lines = ["Scan afgerond. Bestanden opgeslagen als *_searchable.pdf:\n"]
+            for pdf_path, target, preview in batch_summary:
+                lines.append(f"- {pdf_path.name} -> {target.name}")
+                if preview:
+                    lines.append("  Preview:")
+                    lines.append(preview.replace("\n", " ")[:400])
+                    lines.append("")
             self.text.delete("1.0", tk.END)
-            self.text.insert(tk.END, self.scan_result.combined_text())
-            self.status_var.set("Scannen voltooid")
+            self.text.insert(tk.END, "\n".join(lines))
+            self.status_var.set(f"Batch voltooid ({len(batch_summary)} bestand(en))")
+            self.progress["value"] = 1.0
         except Exception as exc:
             messagebox.showerror("Scan fout", str(exc))
             self.status_var.set("Scannen mislukt")
-
-    def export_pdf(self) -> None:
-        if not self.selected_pdf or not self.scan_result:
-            messagebox.showwarning("Geen data", "Scan eerst een PDF voordat je exporteert.")
-            return
-        default_target = self.app_controller.default_output_path(self.selected_pdf)
-        target = filedialog.asksaveasfilename(defaultextension=".pdf", initialfile=default_target.name)
-        if not target:
-            return
-
-        try:
-            output = self.export_controller.export_searchable_pdf(
-                self.selected_pdf,
-                self.scan_result,
-                Path(target),
-            )
-            self.status_var.set(f"Export voltooid: {output.name}")
-            messagebox.showinfo("Klaar", f"Bestand opgeslagen als:\n{output}")
-        except Exception as exc:
-            messagebox.showerror("Export fout", str(exc))
 
     def run(self) -> None:
         self.root.mainloop()
