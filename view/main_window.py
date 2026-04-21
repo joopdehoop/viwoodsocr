@@ -5,6 +5,7 @@ from tkinter import filedialog, messagebox, ttk
 from controller.app_controller import AppController
 from controller.export_controller import ExportController
 from controller.ocr_controller import OCRController
+from services.document_file_namer import DocumentFileNamer
 from services.job_queue import JobQueue
 from services.pdf_renderer import PDFRenderer
 from services.searchable_pdf_writer import SearchablePDFWriter
@@ -17,9 +18,11 @@ class MainWindow:
         self.root.title("Viwoods OCR Scanner")
         self.root.geometry("860x580")
 
-        self.app_controller = AppController(SecretsLoader())
+        self.secrets = SecretsLoader()
+        self.app_controller = AppController(self.secrets)
         self.ocr_controller = OCRController(PDFRenderer())
         self.export_controller = ExportController(SearchablePDFWriter())
+        self.file_namer = DocumentFileNamer(self.secrets)
         self.jobs = JobQueue(max_workers=1)
 
         self.selected_pdfs: list[Path] = []
@@ -126,7 +129,8 @@ class MainWindow:
                 self.root.after(0, update)
 
             result = self.ocr_controller.scan_document(pdf_path, provider, config, on_progress=on_progress)
-            target = self.app_controller.default_output_path(pdf_path)
+            suggested_name = self.file_namer.suggest_filename(pdf_path, result.combined_text())
+            target = self.file_namer.ensure_unique_path(pdf_path.with_name(suggested_name))
             self.export_controller.export_searchable_pdf(pdf_path, result, target)
             preview = result.combined_text()[:3000]
             summary.append((pdf_path, target, preview))
@@ -143,7 +147,7 @@ class MainWindow:
         self._set_busy(False)
         try:
             batch_summary = self.scan_future.result()
-            lines = ["Scan afgerond. Bestanden opgeslagen als *_searchable.pdf:\n"]
+            lines = ["Scan afgerond. Bestanden opgeslagen met LLM-bestandsnaam:\n"]
             for pdf_path, target, preview in batch_summary:
                 lines.append(f"- {pdf_path.name} -> {target.name}")
                 if preview:
